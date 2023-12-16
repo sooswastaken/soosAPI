@@ -1,7 +1,7 @@
 from sanic import Sanic
 from sanic.response import redirect, text, json as response_json
 from sanic.exceptions import NotFound
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import pytz
 
@@ -24,35 +24,39 @@ async def index(request):
 
 @app.route("/hhs/calendar/get-current-date")
 async def get_current_date(request):
-    # Get the current date in the EST timezone
     current_date_est = datetime.now(app.ctx.timezone).strftime('%Y-%m-%d')
     # current_date_est = "2024-01-03"  # comment this out for production
     print(current_date_est)
     data = get_calendar_data(current_date_est, format_data=request.args.get('format', False))
-    # return text or json depending on the format_data flag (format means text)
     return request.args.get('format', False) and text(data) or response_json(data)
 
 
 @app.route("/hhs/calendar/get-date/<date>")
 async def get_date(request, date):
     data = get_calendar_data(date, format_data=request.args.get('format', False))
-    # return text or json depending on the format_data flag (format means text)
+    print(data)
     return request.args.get('format', False) and text(data) or response_json(data)
 
 
 def get_calendar_data(date, format_data=False):
-    # if it is a weekend, return a weekend message
     date_obj = datetime.strptime(date, '%Y-%m-%d')
     if date_obj.weekday() == 5 or date_obj.weekday() == 6:
-        if format_data:
-            if date_obj.weekday() == 5:
-                return "It's Saturday! Enjoy your weekend."
-            if date_obj.weekday() == 6:
-                return "It's Sunday! School starts tomorrow."
+        monday_date = date_obj + timedelta(days=(7 - date_obj.weekday()))
+        monday_data = app.ctx.hhs_school_calendar.get(monday_date.strftime('%Y-%m-%d'))
+        if monday_data and monday_data.get('type') == 'Student Holiday':
+            if format_data:
+                return "Enjoy your break! Today is a Student Holiday."
+            else:
+                return {'type': 'Weekend Student Holiday'}
         else:
-            return {'type': 'Weekend'}
+            if format_data:
+                if date_obj.weekday() == 5:
+                    return "It's Saturday! Enjoy your weekend."
+                if date_obj.weekday() == 6:
+                    return "It's Sunday! School starts tomorrow."
+            else:
+                return {'type': 'Weekend'}
 
-    # if it is after june 15th, return a summer message
     if date_obj.month == 6 and date_obj.day >= 13:
         if format_data:
             return "It's summer! Have fun. Turn off this shortcut until next year."
@@ -61,6 +65,21 @@ def get_calendar_data(date, format_data=False):
 
     data = app.ctx.hhs_school_calendar.get(date)
     print(data)
+    if data and data.get('type') in ['Student Holiday', 'Teacher Work Day']:
+        next_day_date = date_obj + timedelta(days=1)
+        # check if next day is a weekend or student holiday
+        is_next_day_weekend = next_day_date.weekday() == 5 or next_day_date.weekday() == 6
+        next_day_data = app.ctx.hhs_school_calendar.get(next_day_date.strftime('%Y-%m-%d'))
+        print(next_day_data)
+        if format_data:
+            # if tmrw is not Student Holiday, nor Weekend Nor Teacher Work Day
+            next_day_message = " School starts tomorrow." if not (
+                    next_day_data and next_day_data.get('type') in ['Student Holiday', 'Teacher Work Day']) else ""
+            if is_next_day_weekend:
+
+            return format_calender_day(data) + next_day_message
+        else:
+            return data
     if format_data:
         return format_calender_day(data)
     else:
@@ -68,18 +87,17 @@ def get_calendar_data(date, format_data=False):
 
 
 def format_calender_day(day_data):
+    if day_data['type'] == 'Student Holiday':
+        return "Enjoy your break! Today is a Student Holiday."
 
-    # Initial message
     message = f"Good morning. Today is a {day_data['type']}"
 
-    # Add stinger if present and relevant
     if 'stinger' in day_data and day_data['stinger'] != "N/A":
         if 'TA' in day_data['stinger'] or any(char.isdigit() for char in day_data['stinger']):
             message += f" with {day_data['stinger']}"
         else:
             message += f". {day_data['stinger']} is taking place"
 
-    # Process flags
     if day_data['type'] == 'Black Day' or day_data['type'] == 'Red Day':
         if 'End of School Year' in day_data['flags']:
             message += ". It is the last day of school!"
@@ -92,9 +110,7 @@ def format_calender_day(day_data):
         elif 'Early Release' in day_data['flags']:
             message += ". Remember, today is an early release day"
 
-    # Final punctuation
     message += "."
-
     return message
 
 
@@ -108,4 +124,4 @@ async def ignore_404s(request, exception):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5212)
+    app.run(host="0.0.0.0", port=5212, auto_reload=True)
