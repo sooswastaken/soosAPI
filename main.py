@@ -26,15 +26,18 @@ async def index(request):
 async def get_current_date(request):
     # Get the current date in the EST timezone
     current_date_est = datetime.now(app.ctx.timezone).strftime('%Y-%m-%d')
-    current_date_est = "2024-01-03"  # comment this out for production
+    # current_date_est = "2024-01-03"  # comment this out for production
     print(current_date_est)
     data = get_calendar_data(current_date_est, format_data=request.args.get('format', False))
-    return response_json(data)
+    # return text or json depending on the format_data flag (format means text)
+    return request.args.get('format', False) and text(data) or response_json(data)
 
 
 @app.route("/hhs/calendar/get-date/<date>")
 async def get_date(request, date):
-    return response_json(get_calendar_data(date, format_data=request.args.get('format', False)))
+    data = get_calendar_data(date, format_data=request.args.get('format', False))
+    # return text or json depending on the format_data flag (format means text)
+    return request.args.get('format', False) and text(data) or response_json(data)
 
 
 def get_calendar_data(date, format_data=False):
@@ -105,4 +108,4 @@ async def ignore_404s(request, exception):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    app.run(host="0.0.0.0", port=5212)
