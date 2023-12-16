@@ -6,11 +6,12 @@ from sanic.response import redirect, text
 from sanic.exceptions import NotFound
 
 try:
-    with open("./config.json", "r") as f:
+    with open("./config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
     print("Config file not found. Exiting...")
     exit(1)
+
 
 from calendar_blueprint import calendar_blueprint
 
