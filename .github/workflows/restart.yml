@@ -1,4 +1,4 @@
-name: Update API
+name: Restart API
 
 on: [push]
 
@@ -17,11 +17,10 @@ jobs:
                   # Lint all Python files
                   pylint --disable=C,R . --recursive=true
 
-    Restart-Server:
+    Restart-API:
         runs-on: ubuntu-latest
         needs: [Error-Check]
         steps:
             - name: Call API
               run: |
-                  # Call your API here, using the API key stored in the API_KEY environment variable
                   curl -X POST https://api.soos.dev/restart -H "Authorization: Bearer ${{ secrets.API_KEY }}"
