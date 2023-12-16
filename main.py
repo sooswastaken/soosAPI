@@ -34,7 +34,7 @@ def webhook(request):
 
 @app.exception(NotFound)
 async def ignore_404s(_, __):
-    return text("404")
+    return text("404 - Page Not Found")
 
 
 if __name__ == "__main__":
