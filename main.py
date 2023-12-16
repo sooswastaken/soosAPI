@@ -38,6 +38,24 @@ async def get_date(request, date):
 
 
 def get_calendar_data(date, format_data=False):
+    # if it is a weekend, return a weekend message
+    date_obj = datetime.strptime(date, '%Y-%m-%d')
+    if date_obj.weekday() == 5 or date_obj.weekday() == 6:
+        if format_data:
+            if date_obj.weekday() == 5:
+                return "It's Saturday! Enjoy your weekend."
+            if date_obj.weekday() == 6:
+                return "It's Sunday! School starts tomorrow."
+        else:
+            return {'type': 'Weekend'}
+
+    # if it is after june 15th, return a summer message
+    if date_obj.month == 6 and date_obj.day >= 13:
+        if format_data:
+            return "It's summer! Have fun. Turn off this shortcut until next year."
+        else:
+            return {'type': 'Summer'}
+
     data = app.ctx.hhs_school_calendar.get(date)
     print(data)
     if format_data:
@@ -47,6 +65,7 @@ def get_calendar_data(date, format_data=False):
 
 
 def format_calender_day(day_data):
+
     # Initial message
     message = f"Good morning. Today is a {day_data['type']}"
 
