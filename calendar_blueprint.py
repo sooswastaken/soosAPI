@@ -11,7 +11,7 @@ calendar_blueprint = Blueprint('calendar_blueprint', url_prefix='/hhs/calendar')
 @calendar_blueprint.listener('before_server_start')
 async def setup_calendar(app, _):
     file_path = "./school_calendar.json"
-    with open(file_path, "r") as f:
+    with open(file_path, "r",  encoding="utf-8") as f:
         school_calendar = json.load(f)
     app.ctx.hhs_school_calendar = school_calendar
     app.ctx.timezone = pytz.timezone('US/Eastern')
