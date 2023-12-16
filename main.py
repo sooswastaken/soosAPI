@@ -1,6 +1,16 @@
+import json
+import subprocess
+
 from sanic import Sanic
 from sanic.response import redirect, text
 from sanic.exceptions import NotFound
+
+try:
+    with open("./config.json", "r") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    print("Config file not found. Exiting...")
+    exit(1)
 
 from calendar_blueprint import calendar_blueprint
 
@@ -13,10 +23,23 @@ async def index(_):
     return redirect("https://soos.dev?refer=api", status=301)
 
 
+@app.route("/restart", methods=["POST"])
+def webhook(request):
+    if request.token != config["github-actions-secret"]:
+        return text("Invalid token")
+
+    subprocess.call(["git", "pull"])
+    return text("Restarting")
+
+
 @app.exception(NotFound)
 async def ignore_404s(_, __):
     return text("404")
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5212)
+    app.run(host="0.0.0.0",
+            port=config["port"],
+            auto_reload=True,
+            debug=not config["production"],
+            )

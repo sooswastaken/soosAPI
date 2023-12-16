@@ -17,6 +17,7 @@ async def setup_calendar(app, _):
     app.ctx.timezone = pytz.timezone('US/Eastern')
     app.ctx.cache = {}  # Initialize cache
 
+
 def get_calendar_data(app_ctx, date, format_data=False):
     date_obj = datetime.strptime(date, '%Y-%m-%d')
 
