@@ -9,8 +9,7 @@ try:
     with open("./config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
 except FileNotFoundError:
-    print("Config file not found. Exiting...")
-    exit(1)
+    raise FileNotFoundError("config.json not found. Please create one.") from None
 
 
 from calendar_blueprint import calendar_blueprint
@@ -21,11 +20,11 @@ app.blueprint(calendar_blueprint)
 
 @app.route("/")
 async def index(_):
-    return redirect("https://soos.dev?refer=api", status=301)
+    return redirect(config["index-redirect-url"], status=301)
 
 
 @app.route("/restart", methods=["POST"])
-def webhook(request):
+async def restart(request):
     if request.token != config["github-actions-secret"]:
         return text("Invalid token")
 
