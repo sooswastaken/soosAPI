@@ -121,6 +121,7 @@ def is_morning(app_ctx):
 
 
 def visited_count(request):
+    print(request.headers.get("CF-Connecting-IP"))
     # return false if header is not present
     if not request.headers.get("cf-connecting-ip"):
         print("no header")
