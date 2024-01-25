@@ -78,41 +78,57 @@ def is_weekend(date_obj):
 
 
 def format_calendar_day(day_data, date_obj, app_ctx):
-    messages = []
+    # if it is summer, return "It is summer break! Turn off this shortcut until next school year"
 
-    if 'stinger' in day_data:
-        messages.append(
-            f"Don't forget about {day_data['stinger']} happening today." if 'TA' in day_data['stinger'] or any(
-                char.isdigit() for char in
-                day_data['stinger']) else f"Also, {day_data['stinger']} is taking place today.")
+    if day_data['type'] == 'Summer':
+        return "It's summer break! Turn off this shortcut until next school year"
 
-    day_type = day_data['type']
-    if day_type in ['Sunday', 'Student Holiday', "Teacher Workday", "Holiday"]:
-        next_day, next_day_data = get_next_school_day(app_ctx, date_obj)
-        delta_days = (next_day - date_obj).days
-        if delta_days == 1:
-            messages.append(f"Looking ahead, we have a {next_day_data['type']} lined up for tomorrow. ")
-        elif delta_days < 7:
-            messages.append(f"Enjoy your time off! School will resume next {next_day.strftime('%A')}. ")
+    message = f"Good morning. Today is a {day_data['type']}"
+    if 'stinger' in day_data and day_data['stinger'] != "N/A":
+        if 'TA' in day_data['stinger'] or any(char.isdigit() for char in day_data['stinger']):
+            message += f" with {day_data['stinger']}"
         else:
-            messages.append(f"Keep enjoying your long break! School resumes on {next_day.strftime('%B %d')}. ")
+            message += f". {day_data['stinger']} is taking place"
 
-    flags = day_data.get('flags', [])
-    flag_messages = {
-        'End of School Year': "You've made it! Today marks the last day of this school year. Congratulations! ",
-        'Observance Day': "Today holds a special observance. Let's honor it together. ",
-        'Evening Observance Day': "There's an observance event this evening. A wonderful opportunity to gather! ",
-        'End of Quarter': "As we reach the quarter's end today, it's a great time to finalize any pending tasks. ",
-        'Early Release': "Just a heads up, you get out 2 hours early today. ",
-    }
-    for flag in flags:
-        if flag in flag_messages:
-            messages.append(flag_messages[flag])
+    # if it is a sunday/holiday, add a message about when the next school day is
 
-    greeting = "Good morning." if is_morning(app_ctx) else "Hello."
-    messages.insert(0, f"{greeting} Today is a {day_data['type']}. ")
+    # for sundays, it is the next day (check if the next day is a holiday), but for holidays, recalculate the next
+    # day until it is not a holiday
+    if day_data['type'] == 'Sunday' or day_data['type'] in ['Student Holiday', "Teacher Workday", "Holiday"]:
+        # check if the next day is a holiday
+        next_day = date_obj + timedelta(days=1)
+        next_day_data = get_calendar_data(app_ctx, next_day.strftime('%Y-%m-%d'))
 
-    return ''.join(messages)
+        # if the next day is a holiday, keep recalculating until it is not
+        while next_day_data['type'] in ['Student Holiday', "Teacher Workday", "Holiday", "Saturday", "Sunday"]:
+            next_day = next_day + timedelta(days=1)
+            next_day_data = get_calendar_data(app_ctx, next_day.strftime('%Y-%m-%d'))
+
+        # since its a sunday, we can assume the next day is not a weekend
+
+        # if it is one day, say "tomorrow", otherwise say "on <day of week>" if it is within the next week,
+        # otherwise say "on <month> <day>"
+        if next_day == date_obj + timedelta(days=1):
+            message += f". Tomorrow is a {next_day_data['type']}"
+        elif next_day - date_obj < timedelta(days=7):
+            message += f". School resumes on {next_day.strftime('%A')}"
+        else:
+            message += f". School resumes on {next_day.strftime('%B %d')}"
+
+    if day_data['type'] == 'Black Day' or day_data['type'] == 'Red Day':
+        if 'End of School Year' in day_data['flags']:
+            message += ". It is the last day of school!"
+        elif 'Observance Day' in day_data['flags']:
+            message += ". Don't forget the special observance today"
+        elif 'Evening Observance Day' in day_data['flags']:
+            message += ". There's an observance event this evening"
+        elif 'Quarter End' in day_data['flags']:
+            message += ". The quarter ends today. Time to wrap things up"
+        elif 'Early Release' in day_data['flags']:
+            message += ". Remember, today is an early release day"
+
+    message += "."
+    return message
 
 
 def is_morning(app_ctx):
