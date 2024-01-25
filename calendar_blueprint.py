@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 import pytz
 import json
@@ -119,6 +120,33 @@ def is_morning(app_ctx):
     return current_hour < 12
 
 
+def visited_count(request):
+    # return false if header is not present
+    if not request.headers.get("CF-Connecting-IP"):
+        return False
+
+    # check cf ip in visits.json, if not there, add it if it is increase by 1
+
+    # check if visits.json exists, if not create it
+    if not os.path.exists("visits.json"):
+        with open("visits.json", "w") as f:
+            json.dump({}, f)
+
+    # load visits.json
+    with open("visits.json", "r") as f:
+        data = json.load(f)
+
+    # check if cf ip is in visits.json
+    if request.headers.get("CF-Connecting-IP") in data:
+        # if it is, increase by 1
+        data[request.headers.get("CF-Connecting-IP")] += 1
+        return data[request.headers.get("CF-Connecting-IP")]
+    else:
+        # if it isn't, add it
+        data[request.headers.get("CF-Connecting-IP")] = 1
+        return 1
+
+
 @calendar_blueprint.route("/get-current-date")
 async def get_current_date(request):
     format_data = request.args.get('format', False)
@@ -171,4 +199,9 @@ async def get_date(request, date):
         return text("Invalid date format. Please use YYYY-MM-DD")
 
     data = get_calendar_data(request.app.ctx, date, format_data=format_data)
-    return response_json(data) if not format_data else text(data)
+    if not format_data:
+        if visited_count(request) < 4:
+            return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
+        return text(data)
+    else:
+        return response_json(data)
