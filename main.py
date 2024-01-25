@@ -4,6 +4,7 @@ import subprocess
 from sanic import Sanic
 from sanic.response import redirect, text
 from sanic.exceptions import NotFound
+from sanic_cors import CORS
 
 try:
     with open("./config.json", "r", encoding="utf-8") as f:
@@ -15,6 +16,7 @@ except FileNotFoundError:
 from calendar_blueprint import calendar_blueprint
 
 app = Sanic(__name__)
+CORS(app)
 app.blueprint(calendar_blueprint)
 
 
@@ -29,6 +31,7 @@ async def restart(request):
         return text("Invalid token")
 
     subprocess.call(["git", "pull"])
+    subprocess.call(["pip", "install", "-r", "requirements.txt"])
     return text("Restarting")
 
 
