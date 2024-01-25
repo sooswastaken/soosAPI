@@ -125,7 +125,7 @@ def visited_count(request):
     if not request.headers.get("CF-Connecting-IP"):
         print("no header")
         return False
-
+    print(request.headers.get("CF-Connecting-IP"))
     # check cf ip in visits.json, if not there, add it if it is increase by 1
 
     # check if visits.json exists, if not create it
