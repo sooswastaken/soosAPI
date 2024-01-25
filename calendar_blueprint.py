@@ -152,7 +152,12 @@ async def get_current_date(request):
     format_data = request.args.get('format', False)
     current_date_est = datetime.now(request.app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(request.app.ctx, current_date_est, format_data=format_data)
-    return response_json(data) if not format_data else text(data)
+    if not format_data:
+        if visited_count(request) < 4:
+            return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
+        return text(data)
+    else:
+        return response_json(data)
 
 
 @calendar_blueprint.route("/get-period-info")
