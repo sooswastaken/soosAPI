@@ -121,10 +121,8 @@ def is_morning(app_ctx):
 
 
 def visited_count(request):
-    print(request.headers.get("CF-Connecting-IP"))
     # return false if header is not present
-    if not request.headers.get("cf-connecting-ip"):
-        print("no header")
+    if not request.headers.get("CF-Connecting-IP"):
         return False
 
     # check cf ip in visits.json, if not there, add it if it is increase by 1
@@ -142,12 +140,10 @@ def visited_count(request):
     if request.headers.get("CF-Connecting-IP") in data:
         # if it is, increase by 1
         data[request.headers.get("CF-Connecting-IP")] += 1
-        print(data[request.headers.get("CF-Connecting-IP")])
         return data[request.headers.get("CF-Connecting-IP")]
     else:
         # if it isn't, add it
         data[request.headers.get("CF-Connecting-IP")] = 1
-        print(data[request.headers.get("CF-Connecting-IP")])
         return 1
 
 
@@ -156,7 +152,7 @@ async def get_current_date(request):
     format_data = request.args.get('format', False)
     current_date_est = datetime.now(request.app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(request.app.ctx, current_date_est, format_data=format_data)
-    if not format_data:
+    if format_data:
         if visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
@@ -208,7 +204,7 @@ async def get_date(request, date):
         return text("Invalid date format. Please use YYYY-MM-DD")
 
     data = get_calendar_data(request.app.ctx, date, format_data=format_data)
-    if not format_data:
+    if format_data:
         if visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
