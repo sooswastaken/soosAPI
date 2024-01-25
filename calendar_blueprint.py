@@ -140,10 +140,12 @@ def visited_count(request):
     if request.headers.get("CF-Connecting-IP") in data:
         # if it is, increase by 1
         data[request.headers.get("CF-Connecting-IP")] += 1
+        print(data[request.headers.get("CF-Connecting-IP")])
         return data[request.headers.get("CF-Connecting-IP")]
     else:
         # if it isn't, add it
         data[request.headers.get("CF-Connecting-IP")] = 1
+        print(data[request.headers.get("CF-Connecting-IP")])
         return 1
 
 
