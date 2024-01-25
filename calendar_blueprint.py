@@ -18,6 +18,11 @@ WEEKEND_DAYS = [5, 6]
 calendar_blueprint = Blueprint('calendar_blueprint', url_prefix='/hhs/calendar')
 
 
+@calendar_blueprint.middleware("response")
+async def cors(request, response):
+    response.headers.update({"Access-Control-Allow-Origin": "*"})
+
+
 @calendar_blueprint.listener('before_server_start')
 async def setup_calendar(app, _):
     app.ctx.hhs_school_calendar = load_school_calendar()
@@ -131,7 +136,7 @@ async def get_period_info(request):
         return text("It's summer! No school today.")
     if date_data['type'] in ['Student Holiday', "Teacher Workday", "Holiday", "Saturday", "Sunday"]:
         return response_json({"success": True, "no_school": True, "message": "No school today. It is currently a "
-                                                                          + date_data['type']})
+                                                                             + date_data['type']})
 
     period_data = get_period_info_from_scheduler(
         DayTypes.BLACK_DAY if date_data['type'] == "Black Day" else DayTypes.RED_DAY,

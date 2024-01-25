@@ -12,12 +12,15 @@ try:
 except FileNotFoundError:
     raise FileNotFoundError("config.json not found. Please create one.") from None
 
-
 from calendar_blueprint import calendar_blueprint
 
 app = Sanic(__name__)
-CORS(app)
 app.blueprint(calendar_blueprint)
+
+
+@app.middleware("response")
+async def cors(request, response):
+    response.headers.update({"Access-Control-Allow-Origin": "*"})
 
 
 @app.route("/")
