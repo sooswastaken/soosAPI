@@ -103,7 +103,7 @@ def format_calendar_day(day_data, date_obj, app_ctx):
         'Observance Day': "Today holds a special observance. Let's honor it together. ",
         'Evening Observance Day': "There's an observance event this evening. A wonderful opportunity to gather! ",
         'End of Quarter': "As we reach the quarter's end today, it's a great time to finalize any pending tasks. ",
-        'Early Release': "Just a heads up, today we'll be wrapping up a bit earlier than usual. "
+        'Early Release': "Just a heads up, you get out 2 hours early today. ",
     }
     for flag in flags:
         if flag in flag_messages:
