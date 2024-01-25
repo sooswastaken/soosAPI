@@ -123,11 +123,7 @@ def is_morning(app_ctx):
 def visited_count(request):
     # return false if header is not present
     if not request.headers.get("CF-Connecting-IP"):
-        print("no header")
         return False
-    print(request.headers.get("CF-Connecting-IP"))
-    # check cf ip in visits.json, if not there, add it if it is increase by 1
-
     # check if visits.json exists, if not create it
     if not os.path.exists("visits.json"):
         with open("visits.json", "w") as f:
@@ -141,12 +137,20 @@ def visited_count(request):
     if request.headers.get("CF-Connecting-IP") in data:
         # if it is, increase by 1
         data[request.headers.get("CF-Connecting-IP")] += 1
-        print(data[request.headers.get("CF-Connecting-IP")])
+
+        # save visits.json
+        with open("visits.json", "w") as f:
+            json.dump(data, f)
+
         return data[request.headers.get("CF-Connecting-IP")]
     else:
         # if it isn't, add it
         data[request.headers.get("CF-Connecting-IP")] = 1
-        print(data[request.headers.get("CF-Connecting-IP")])
+
+        # save visits.json
+        with open("visits.json", "w") as f:
+            json.dump(data, f)
+
         return 1
 
 
