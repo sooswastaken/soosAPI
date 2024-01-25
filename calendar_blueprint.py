@@ -156,7 +156,8 @@ async def get_period_info(request):
             # second half means replace it with date_data["stinger"]'s text after the "& "
             period_data["period_type"] = period_data["period_type"].replace(
                 "STINGER_SECOND_HALF", date_data["stinger"].split("& ")[1])
-    period_data["now"] = datetime.timestamp(date) * 1000
+    #  the current time in milliseconds since the epoch (for est timezone)
+    period_data["now"] = int(datetime.now(request.app.ctx.timezone).timestamp() * 1000)
 
     return response_json(period_data)
 
