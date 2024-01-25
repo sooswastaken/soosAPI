@@ -122,7 +122,8 @@ def is_morning(app_ctx):
 
 def visited_count(request):
     # return false if header is not present
-    if not request.headers.get("CF-Connecting-IP"):
+    if not request.headers.get("cf-connecting-ip"):
+        print("no header")
         return False
 
     # check cf ip in visits.json, if not there, add it if it is increase by 1
