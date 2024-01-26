@@ -54,7 +54,7 @@ def get_next_school_day(app_ctx, date_obj):
 def get_calendar_data(app_ctx, date_str, format_data=False) -> Union[str, dict]:
     date_obj = datetime.strptime(date_str, DATE_FORMAT)
 
-    if date_str in app_ctx.cache:
+    if date_str in app_ctx.cache and format_data:
         return app_ctx.cache[date_str]
 
     # Retrieve the full day data from the calendar, or use a default if not found
