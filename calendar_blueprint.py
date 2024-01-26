@@ -176,7 +176,8 @@ async def get_current_date(request):
     current_date_est = datetime.now(request.app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(request.app.ctx, current_date_est, format_data=format_data)
     if format_data:
-        if data["type"] not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
+        if get_calendar_data(request.app.ctx, current_date_est, format_data=False)["type"] \
+                not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"] \
                 and visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
@@ -233,7 +234,8 @@ async def get_date(request, date):
 
     data = get_calendar_data(request.app.ctx, date, format_data=format_data)
     if format_data:
-        if data["type"] not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
+        if get_calendar_data(request.app.ctx, date, format_data=False)["type"]\
+                not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
                 and visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
