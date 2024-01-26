@@ -214,6 +214,8 @@ async def get_period_info(request):
                 "STINGER_SECOND_HALF", date_data["stinger"].split("& ")[1])
     #  the current time in milliseconds since the epoch (for est timezone)
     period_data["now"] = int(datetime.now(request.app.ctx.timezone).timestamp() * 1000)
+    period_data["period_type"].replace("AFTER_SCHOOL", "Till midnight")
+    period_data["period_type"].replace("BEFORE_SCHOOL", "Till 8:00 AM")
 
     return response_json(period_data)
 

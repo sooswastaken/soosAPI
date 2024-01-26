@@ -1,5 +1,6 @@
 import enum
 
+
 class PeriodTypes(enum.Enum):
     BEFORE_SCHOOL = "BEFORE_SCHOOL"
     FIRST_PERIOD_TRANSITION = "FIRST_PERIOD_TRANSITION"
