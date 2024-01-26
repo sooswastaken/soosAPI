@@ -125,7 +125,7 @@ def format_calendar_day(day_data, date_obj, app_ctx):
         elif 'Quarter End' in day_data['flags']:
             message += ". The quarter ends today. Time to wrap things up"
         elif 'Early Release' in day_data['flags']:
-            message += ". Remember, today is an early release day"
+            message += ". By the way, today is an early release day"
 
     message += "."
     return message
@@ -176,7 +176,8 @@ async def get_current_date(request):
     current_date_est = datetime.now(request.app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(request.app.ctx, current_date_est, format_data=format_data)
     if format_data:
-        if visited_count(request) < 4:
+        if data["type"] not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
+                and visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
     else:
@@ -185,14 +186,15 @@ async def get_current_date(request):
 
 @calendar_blueprint.route("/get-period-info")
 async def get_period_info(request):
+    # date is current date (timezone) but then stripped of the timezones
     date = datetime.now(request.app.ctx.timezone).replace(tzinfo=None)
     date_data = get_calendar_data(request.app.ctx, date.strftime(DATE_FORMAT))
 
-    if date_data['type'] == 'Summer':
-        return text("It's summer! No school today.")
-    if date_data['type'] in ['Student Holiday', "Teacher Workday", "Holiday", "Saturday", "Sunday"]:
+    if date_data['type'] in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]:
         return response_json({"success": True, "no_school": True, "message": "No school today. It is currently a "
                                                                              + date_data['type']})
+
+    print(date_data['type'])
 
     period_data = get_period_info_from_scheduler(
         DayTypes.BLACK_DAY if date_data['type'] == "Black Day" else DayTypes.RED_DAY,
@@ -231,7 +233,8 @@ async def get_date(request, date):
 
     data = get_calendar_data(request.app.ctx, date, format_data=format_data)
     if format_data:
-        if visited_count(request) < 4:
+        if data["type"] not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
+                and visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
     else:
