@@ -192,7 +192,7 @@ async def get_period_info(request):
 
     if date_data['type'] in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]:
         return response_json({"success": True, "no_school": True, "message": "No school today. It is currently a "
-                                                                             + date_data['type']})
+                                                                             + date_data['type'] + "."})
 
     print(date_data['type'])
 
