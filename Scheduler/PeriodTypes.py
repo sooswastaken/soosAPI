@@ -1,7 +1,13 @@
 import enum
 
 
-class PeriodTypes(enum.Enum):
+class TitleCaseEnum(enum.Enum):
+    def __str__(self):
+        # Replace underscores with spaces and convert to title case
+        return self.value.replace('_', ' ').title()
+
+
+class PeriodTypes(TitleCaseEnum):
     BEFORE_SCHOOL = "BEFORE_SCHOOL"
     FIRST_PERIOD_TRANSITION = "FIRST_PERIOD_TRANSITION"
     FIRST_PERIOD = "FIRST_PERIOD"

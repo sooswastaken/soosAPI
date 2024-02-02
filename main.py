@@ -19,8 +19,8 @@ app.blueprint(calendar_blueprint)
 
 
 @app.middleware("response")
-async def cors(request, response):
-    response.headers.update({"Access-Control-Allow-Origin": "*"})
+async def cors(_, response):
+    response.headers.update({"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "*"})
 
 
 @app.route("/")

@@ -10,6 +10,7 @@ def get_period_info(day_type, date):
     time_left = None
     time_total = None
     current_period = None
+    next_period_start_time = None
 
     if day_type == DayTypes.BLACK_DAY:
         # Determine what period it currently is
@@ -22,6 +23,7 @@ def get_period_info(day_type, date):
                 previous_period = getattr(BLACK_DAY_PERIOD_TYPES, period.value["previous"].name)
                 previous_period_end = datetime.datetime.combine(date, previous_period.value["end"])
                 time_total = end_time - previous_period_end
+                next_period_start_time = datetime.datetime.combine(date, period.value["end"])
                 break
     if day_type == DayTypes.RED_DAY:
         # Determine what period it currently is
@@ -34,7 +36,8 @@ def get_period_info(day_type, date):
                 previous_period = getattr(RED_DAY_PERIOD_TYPES, period.value["previous"].name)
                 previous_period_end = datetime.datetime.combine(date, previous_period.value["end"])
                 time_total = end_time - previous_period_end
+                next_period_start_time = datetime.datetime.combine(date, period.value["end"])
                 break
     if day_type == DayTypes.WEEKEND:
         return "WEEKEND"
-    return PeriodInfoModel(time_total, time_left, day_type, current_period)
+    return PeriodInfoModel(time_total, time_left, day_type, current_period, next_period_start_time)

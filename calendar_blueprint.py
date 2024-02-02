@@ -3,11 +3,23 @@ from datetime import datetime, timedelta
 import pytz
 import json
 from typing import Union
+
+from apscheduler.triggers.cron import CronTrigger
 from sanic import Blueprint
 from sanic.response import text, json as response_json
+from pywebpush import webpush
 
+from Scheduler.BLACK_DAY_PERIOD_TYPES import BLACK_DAY_PERIOD_TYPES
+from Scheduler.RED_DAY_PERIOD_TYPES import RED_DAY_PERIOD_TYPES
+from Scheduler.PeriodTypes import PeriodTypes
 from Scheduler.Scheduler import get_period_info as get_period_info_from_scheduler
 from Scheduler.DayTypes import DayTypes
+
+from ratelimit import ratelimiter
+import aiosqlite
+
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Constants
 DATE_FORMAT = '%Y-%m-%d'
@@ -18,10 +30,133 @@ WEEKEND_DAYS = [5, 6]
 # Create a Blueprint instance
 calendar_blueprint = Blueprint('calendar_blueprint', url_prefix='/hhs/calendar')
 
+DER_BASE64_ENCODED_PRIVATE_KEY_FILE_PATH = os.path.join(os.getcwd(), "private_key.txt")
+DER_BASE64_ENCODED_PUBLIC_KEY_FILE_PATH = os.path.join(os.getcwd(), "public_key.txt")
 
-@calendar_blueprint.middleware("response")
-async def cors(request, response):
-    response.headers.update({"Access-Control-Allow-Origin": "*"})
+VAPID_PRIVATE_KEY = open(DER_BASE64_ENCODED_PRIVATE_KEY_FILE_PATH, "r").read().strip()
+VAPID_PUBLIC_KEY = open(DER_BASE64_ENCODED_PUBLIC_KEY_FILE_PATH, "r").read().strip()
+
+VAPID_CLAIMS = {"sub": "mailto:contact@soos.dev"}
+
+scheduler = AsyncIOScheduler()
+
+
+async def handle_daily_scheduling(_app):
+    current_date_est = datetime.now(_app.ctx.timezone).strftime(DATE_FORMAT)
+    data = get_calendar_data(_app.ctx, current_date_est, format_data=False)
+    print(data)
+    await schedule_tasks_for_day(scheduler, data['type'])
+
+
+@calendar_blueprint.after_server_stop
+async def shutdown_scheduler(_, __):
+    scheduler.shutdown()
+
+
+async def send_web_push(subscription_info, message_body):
+    return webpush(
+        subscription_info=subscription_info,
+        data=message_body.replace('"', ''),
+        vapid_private_key=VAPID_PRIVATE_KEY,
+        vapid_claims=VAPID_CLAIMS.copy()
+    )
+
+
+async def send_notifications(message):
+    print("Sending notifications")
+    async with aiosqlite.connect(DB_FILE) as db:
+        async with db.execute("SELECT token FROM subscriptions") as cursor:
+            async for row in cursor:
+                try:
+                    token = json.loads(row[0])
+                    await send_web_push(token, message)
+                    print(f"Notification sent to {token}")
+                except Exception as e:
+                    print(f"Error sending notification: {e}")
+
+
+async def schedule_tasks_for_day(_scheduler, day_type):
+    # Choose the correct ENUM based on the day type
+    day_periods = BLACK_DAY_PERIOD_TYPES if day_type == "Black Day" else RED_DAY_PERIOD_TYPES
+
+    now = datetime.now()  # Current date and time
+
+    for period in day_periods:
+        period_info = period.value  # Access the dictionary of the period
+        # Calculate the start time for the task (5 minutes before the period's end time)
+        task_time = datetime.combine(now.date(), period_info["end"])
+
+        # Check if the calculated time for the task is in the past
+        if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL]:
+            print("PERIOD INFO", period_info)
+            # Schedule the task only if it's in the future
+            _scheduler.add_job(
+                send_notifications,  # Replace with the function you want to run
+                trigger=DateTrigger(run_date=task_time),
+                args=[f"{period_info['type']} ends in 5 minutes!"],
+            )
+            print(f"Task scheduled for {task_time}:", f"{period_info['type']} ends in 5 minutes.")
+
+    # DEBUG SCHEDULE ONE FOR 2:07 PM
+    _scheduler.add_job(
+        send_notifications,  # Replace with the function you want to run
+        trigger=DateTrigger(run_date=datetime.combine(now.date(), datetime.strptime("14:44", "%H:%M").time())),
+        args=["Triggered Task"],
+    )
+
+
+@calendar_blueprint.route("/subscription/", methods=["OPTIONS"])
+async def subscription_options(request):
+    # preflight request for CORS
+    return response_json({"public_key": VAPID_PUBLIC_KEY})
+
+
+@calendar_blueprint.route("/subscription/", methods=["POST", "GET"])
+async def subscription(request):
+    if request.method == "GET":
+        return response_json({"public_key": VAPID_PUBLIC_KEY})
+
+    if request.method == "POST":
+        subscription_token = request.json.get("sub_token")
+        if not subscription_token:
+            return response_json({"message": "Invalid subscription token"}, status=400)
+        state = request.json.get("state")
+        if state:
+            print("UPDATING SUBSCRIPTION", subscription_token)
+            async with aiosqlite.connect(DB_FILE) as db:
+                async with db.execute("SELECT token FROM subscriptions WHERE token = ?",
+                                      (json.dumps(subscription_token),)) as cursor:
+                    row = await cursor.fetchone()
+                    if row is None:
+                        await db.execute("INSERT INTO subscriptions (token) VALUES (?)",
+                                         (json.dumps(subscription_token),))
+                        await db.commit()
+                    else:
+                        print("ALREADY EXISTS")
+        else:
+            # remove from db if exists
+            print("REMOVING SUBSCRIPTION", subscription_token)
+            async with aiosqlite.connect(DB_FILE) as db:
+                await db.execute("DELETE FROM subscriptions WHERE token = ?", (json.dumps(subscription_token),))
+                await db.commit()
+        return response_json({"message": "Subscription updated successfully"}, status=201)
+
+
+@calendar_blueprint.middleware("request")
+async def rate_limit_middleware(request):
+    ratelimit = await ratelimiter(request)
+    if ratelimit:
+        return response_json(
+            {
+                "success": False,
+                "retryAfter": ratelimit,
+                "ratelimitInfo": "200 requests per 60 seconds"
+            },
+            headers={"Cache-Control": "no-store"},
+            status=429)
+
+
+DB_FILE = "subscribed_users_notifications.db"
 
 
 @calendar_blueprint.listener('before_server_start')
@@ -29,6 +164,21 @@ async def setup_calendar(app, _):
     app.ctx.hhs_school_calendar = load_school_calendar()
     app.ctx.timezone = pytz.timezone(TIMEZONE)
     app.ctx.cache = {}  # Initialize cache
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute("CREATE TABLE IF NOT EXISTS subscriptions (token TEXT UNIQUE);")
+        await db.commit()
+
+    scheduler.start()
+
+    # Schedule the daily task check to run at 00:01 every day
+    scheduler.add_job(
+        handle_daily_scheduling,
+        CronTrigger(hour=0, minute=1),  # Adjust the time as needed
+        args=[app]
+    )
+
+    # also run the daily scheduling task immediately
+    await handle_daily_scheduling(app)
 
 
 def load_school_calendar():
@@ -215,10 +365,8 @@ async def get_period_info(request):
             # second half means replace it with date_data["stinger"]'s text after the "& "
             period_data["period_type"] = period_data["period_type"].replace(
                 "STINGER_SECOND_HALF", date_data["stinger"].split("& ")[1])
-    #  the current time in milliseconds since the epoch (for est timezone)
-    period_data["now"] = int(datetime.now(request.app.ctx.timezone).timestamp() * 1000)
-    period_data["period_type"] = period_data["period_type"]\
-        .replace("AFTER_SCHOOL", "Till midnight")\
+    period_data["period_type"] = period_data["period_type"] \
+        .replace("AFTER_SCHOOL", "Till midnight") \
         .replace("BEFORE_SCHOOL", "Till 8:00 AM")
 
     return response_json(period_data)
@@ -234,8 +382,8 @@ async def get_date(request, date):
 
     data = get_calendar_data(request.app.ctx, date, format_data=format_data)
     if format_data:
-        if get_calendar_data(request.app.ctx, date, format_data=False)["type"]\
-                not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]\
+        if get_calendar_data(request.app.ctx, date, format_data=False)["type"] \
+                not in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"] \
                 and visited_count(request) < 4:
             return text(data + " Visit schedule.soos.dev to view a live clock of the current period. ")
         return text(data)
