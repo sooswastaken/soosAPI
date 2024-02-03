@@ -42,10 +42,12 @@ scheduler = AsyncIOScheduler()
 
 
 async def handle_daily_scheduling(_app):
+    # Assuming DATE_FORMAT is defined elsewhere
     current_date_est = datetime.now(_app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(_app.ctx, current_date_est, format_data=False)
     print(data)
-    await schedule_tasks_for_day(scheduler, data['type'])
+    if data['type'] in ["Black Day", "Red Day"]:
+        await schedule_tasks_for_day(scheduler, data['type'], _app.ctx.timezone)
 
 
 @calendar_blueprint.after_server_stop
@@ -62,6 +64,16 @@ async def send_web_push(subscription_info, message_body):
     )
 
 
+@calendar_blueprint.route('/admin/announce', methods=['GET'])
+async def announce(request):
+    message = request.args.get('message')
+    password = request.args.get('password')
+    if password == request.app.ctx.config['admin-password']:
+        await send_notifications(message)
+        return response_json({"message": "Notifications sent"})
+    return response_json({"message": "Invalid password"})
+
+
 async def send_notifications(message):
     print("Sending notifications")
     async with aiosqlite.connect(DB_FILE) as db:
@@ -75,34 +87,24 @@ async def send_notifications(message):
                     print(f"Error sending notification: {e}")
 
 
-async def schedule_tasks_for_day(_scheduler, day_type):
-    # Choose the correct ENUM based on the day type
+async def schedule_tasks_for_day(_scheduler, day_type, timezone):
     day_periods = BLACK_DAY_PERIOD_TYPES if day_type == "Black Day" else RED_DAY_PERIOD_TYPES
 
-    now = datetime.now()  # Current date and time
+    now = datetime.now(timezone)  # Make sure 'now' is timezone-aware
 
     for period in day_periods:
-        period_info = period.value  # Access the dictionary of the period
-        # Calculate the start time for the task (5 minutes before the period's end time)
-        task_time = datetime.combine(now.date(), period_info["end"])
+        period_info = period.value
+        # Ensure task_time is also timezone-aware
+        task_time = datetime.combine(now.date(), period_info["end"], tzinfo=timezone)
 
-        # Check if the calculated time for the task is in the past
         if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL]:
             print("PERIOD INFO", period_info)
-            # Schedule the task only if it's in the future
             _scheduler.add_job(
-                send_notifications,  # Replace with the function you want to run
+                send_notifications,
                 trigger=DateTrigger(run_date=task_time),
                 args=[f"{period_info['type']} ends in 5 minutes!"],
             )
             print(f"Task scheduled for {task_time}:", f"{period_info['type']} ends in 5 minutes.")
-
-    # DEBUG SCHEDULE ONE FOR 2:07 PM
-    _scheduler.add_job(
-        send_notifications,  # Replace with the function you want to run
-        trigger=DateTrigger(run_date=datetime.combine(now.date(), datetime.strptime("14:44", "%H:%M").time())),
-        args=["Triggered Task"],
-    )
 
 
 @calendar_blueprint.route("/subscription/", methods=["OPTIONS"])
@@ -160,13 +162,19 @@ DB_FILE = "subscribed_users_notifications.db"
 
 
 @calendar_blueprint.listener('before_server_start')
-async def setup_calendar(app, _):
+async def setup(app, _):
     app.ctx.hhs_school_calendar = load_school_calendar()
     app.ctx.timezone = pytz.timezone(TIMEZONE)
     app.ctx.cache = {}  # Initialize cache
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute("CREATE TABLE IF NOT EXISTS subscriptions (token TEXT UNIQUE);")
         await db.commit()
+
+    try:
+        with open("./config.json", "r", encoding="utf-8") as f:
+            app.ctx.config = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError("config.json not found. Please create one.") from None
 
     scheduler.start()
 

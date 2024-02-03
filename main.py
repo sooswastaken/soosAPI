@@ -44,6 +44,7 @@ async def ignore_404s(_, __):
 
 
 if __name__ == "__main__":
+    app.ctx.config = config
     app.run(host="0.0.0.0",
             port=config["port"],
             auto_reload=True,
