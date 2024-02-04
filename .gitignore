@@ -2,3 +2,4 @@ config.json
 private_key.txt
 public_key.txt
 vapid_private.pem
+subscribed_users_notifications.db

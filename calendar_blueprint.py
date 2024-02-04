@@ -45,7 +45,6 @@ async def handle_daily_scheduling(_app):
     # Assuming DATE_FORMAT is defined elsewhere
     current_date_est = datetime.now(_app.ctx.timezone).strftime(DATE_FORMAT)
     data = get_calendar_data(_app.ctx, current_date_est, format_data=False)
-    print(data)
     if data['type'] in ["Black Day", "Red Day"]:
         await schedule_tasks_for_day(scheduler, data['type'], _app.ctx.timezone)
 
@@ -75,14 +74,12 @@ async def announce(request):
 
 
 async def send_notifications(message):
-    print("Sending notifications")
     async with aiosqlite.connect(DB_FILE) as db:
         async with db.execute("SELECT token FROM subscriptions") as cursor:
             async for row in cursor:
                 try:
                     token = json.loads(row[0])
                     await send_web_push(token, message)
-                    print(f"Notification sent to {token}")
                 except Exception as e:
                     print(f"Error sending notification: {e}")
 
@@ -97,14 +94,13 @@ async def schedule_tasks_for_day(_scheduler, day_type, timezone):
         # Ensure task_time is also timezone-aware
         task_time = datetime.combine(now.date(), period_info["end"], tzinfo=timezone)
 
-        if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL]:
-            print("PERIOD INFO", period_info)
+        if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL]\
+                and "Transition" not in str(period_info["type"]):
             _scheduler.add_job(
                 send_notifications,
                 trigger=DateTrigger(run_date=task_time),
                 args=[f"{period_info['type']} ends in 5 minutes!"],
             )
-            print(f"Task scheduled for {task_time}:", f"{period_info['type']} ends in 5 minutes.")
 
 
 @calendar_blueprint.route("/subscription/", methods=["OPTIONS"])
@@ -124,7 +120,6 @@ async def subscription(request):
             return response_json({"message": "Invalid subscription token"}, status=400)
         state = request.json.get("state")
         if state:
-            print("UPDATING SUBSCRIPTION", subscription_token)
             async with aiosqlite.connect(DB_FILE) as db:
                 async with db.execute("SELECT token FROM subscriptions WHERE token = ?",
                                       (json.dumps(subscription_token),)) as cursor:
@@ -133,11 +128,7 @@ async def subscription(request):
                         await db.execute("INSERT INTO subscriptions (token) VALUES (?)",
                                          (json.dumps(subscription_token),))
                         await db.commit()
-                    else:
-                        print("ALREADY EXISTS")
         else:
-            # remove from db if exists
-            print("REMOVING SUBSCRIPTION", subscription_token)
             async with aiosqlite.connect(DB_FILE) as db:
                 await db.execute("DELETE FROM subscriptions WHERE token = ?", (json.dumps(subscription_token),))
                 await db.commit()
@@ -352,8 +343,6 @@ async def get_period_info(request):
     if date_data['type'] in ['Student Holiday', "Teacher Work Day", "Holiday", "Saturday", "Sunday", "Summer"]:
         return response_json({"success": True, "no_school": True, "message": "No school today. It is currently a "
                                                                              + date_data['type'] + "."})
-
-    print(date_data['type'])
 
     period_data = get_period_info_from_scheduler(
         DayTypes.BLACK_DAY if date_data['type'] == "Black Day" else DayTypes.RED_DAY,
