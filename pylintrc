@@ -1,0 +1,4 @@
+[MASTER]
+ignore=.venv
+disable=C,R
+recursive=true

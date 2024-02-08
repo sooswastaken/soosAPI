@@ -172,8 +172,10 @@ async def setup(app, _):
     # Schedule the daily task check to run at 00:01 every day
     scheduler.add_job(
         handle_daily_scheduling,
-        CronTrigger(hour=0, minute=1),  # Adjust the time as needed
-        args=[app]
+        CronTrigger(hour=8, minute=0),  # Adjust the time as needed
+        args=[app],
+        executor="asyncio",
+        misfire_grace_time=60
     )
 
     # also run the daily scheduling task immediately
