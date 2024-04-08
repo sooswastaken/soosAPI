@@ -1,6 +1,8 @@
 import json
 import subprocess
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from sanic import Sanic
 from sanic.response import redirect, text
 from sanic.exceptions import NotFound
@@ -16,11 +18,13 @@ from calendar_blueprint import calendar_blueprint
 
 app = Sanic(__name__)
 app.blueprint(calendar_blueprint)
+schedule = AsyncIOScheduler()
 
 
 @app.middleware("response")
 async def cors(_, response):
-    response.headers.update({"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "*"})
+    response.headers.update(
+        {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "*"})
 
 
 @app.route("/")
@@ -41,6 +45,14 @@ async def restart(request):
 @app.exception(NotFound)
 async def ignore_404s(_, __):
     return text("404 - Route Not Found")
+
+
+@app.listener('before_server_start')
+async def initialize_scheduler(_, loop):
+    # Attach the scheduler to the running event loop
+    schedule.configure(event_loop=loop)
+    # Add your scheduled job here to ensure it's using the correct loop
+    schedule.start()
 
 
 if __name__ == "__main__":

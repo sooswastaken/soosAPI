@@ -94,7 +94,7 @@ async def schedule_tasks_for_day(_scheduler, day_type, timezone):
         # Ensure task_time is also timezone-aware
         task_time = datetime.combine(now.date(), period_info["end"], tzinfo=timezone)
 
-        if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL]\
+        if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL] \
                 and "Transition" not in str(period_info["type"]):
             _scheduler.add_job(
                 send_notifications,
@@ -172,9 +172,8 @@ async def setup(app, _):
     # Schedule the daily task check to run at 00:01 every day
     scheduler.add_job(
         handle_daily_scheduling,
-        CronTrigger(hour=8, minute=0),  # Adjust the time as needed
+        CronTrigger(hour=6, minute=0),  # Adjust the time as needed
         args=[app],
-        executor="asyncio",
         misfire_grace_time=60
     )
 

@@ -24,3 +24,4 @@ discord.py
 aiosqlite
 pywebpush
 APScheduler
+pyppeteer
