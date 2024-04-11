@@ -93,6 +93,11 @@ async def schedule_tasks_for_day(_scheduler, day_type, timezone):
         period_info = period.value
         # Ensure task_time is also timezone-aware
         task_time = datetime.combine(now.date(), period_info["end"], tzinfo=timezone)
+        # subtract an hour from task_time for daylight savings time
+        task_time = task_time - timedelta(hours=1)
+
+        # print all the tasks that would have been ran this day
+        print(f"Task for {period_info['type']} would have been scheduled at {task_time}")
 
         if task_time > now and period_info["type"] not in [PeriodTypes.AFTER_SCHOOL, PeriodTypes.BEFORE_SCHOOL] \
                 and "Transition" not in str(period_info["type"]):
