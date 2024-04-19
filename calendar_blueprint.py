@@ -96,6 +96,10 @@ async def schedule_tasks_for_day(_scheduler, day_type, timezone):
         # subtract an hour from task_time for daylight savings time
         task_time = task_time - timedelta(hours=1)
 
+        # subtract 30 seconds
+
+        task_time = task_time - timedelta(seconds=30)
+
         # print all the tasks that would have been ran this day
         print(f"Task for {period_info['type']} would have been scheduled at {task_time}")
 
@@ -179,7 +183,6 @@ async def setup(app, _):
         handle_daily_scheduling,
         CronTrigger(hour=6, minute=0),  # Adjust the time as needed
         args=[app],
-        misfire_grace_time=60
     )
 
     # also run the daily scheduling task immediately
