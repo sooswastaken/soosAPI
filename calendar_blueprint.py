@@ -98,7 +98,7 @@ async def schedule_tasks_for_day(_scheduler, day_type, timezone):
 
         # subtract 30 seconds
 
-        task_time = task_time - timedelta(seconds=30)
+        task_time = task_time + timedelta(seconds=30)
 
         # print all the tasks that would have been ran this day
         print(f"Task for {period_info['type']} would have been scheduled at {task_time}")
